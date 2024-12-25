@@ -46,7 +46,7 @@ def load_model(file_name):
 try:
     model = load_model("model.pkl")
     encoder = load_model("beit_encoder.pkl")
-    classifier = load_model("skorch_ffnn_classifier.pkl")
+    #classifier = load_model("skorch_ffnn_classifier.pkl")
     orient_classifier = load_model("orientation_classifier.pkl")
 except (FileNotFoundError, IOError) as e:
     raise e
@@ -171,11 +171,11 @@ def upload(file: UploadFile):
         corrected_img = rotate_image(img, orientation)
         corrected_img.save(save_path)
 
-    if not classifier.predict(obtaining_embedding(save_path))[0]:
-        raise HTTPException(
-            status_code=400,
-            detail="Incorrect file type. The service only works with certificate of form 405",
-        )
+    #if not classifier.predict(obtaining_embedding(save_path))[0]:
+    #    raise HTTPException(
+    #        status_code=400,
+    #        detail="Incorrect file type. The service only works with certificate of form 405",
+    #    )
     task = process_file.delay(save_path)
     return {"task_id": task.id}
 
