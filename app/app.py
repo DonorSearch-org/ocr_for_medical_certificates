@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import logging
 import pickle
@@ -45,7 +46,7 @@ def load_model(file_name):
 try:
     model = load_model("model.pkl")
     encoder = load_model("beit_encoder.pkl")
-    classifier = load_model("skorch_ffnn_classifier.pkl")
+    #classifier = load_model("skorch_ffnn_classifier.pkl")
     orient_classifier = load_model("orientation_classifier.pkl")
 except (FileNotFoundError, IOError) as e:
     raise e
@@ -77,6 +78,52 @@ def rotate_image(image, orientation):
         return image.rotate(180, expand=True)
     return image
 
+def clean_json(input_json: str) -> str:
+    """
+    Исправляет JSON-строку согласно заданным правилам.
+    
+    Args:
+        input_json (str): Строка с исходным JSON.
+        
+    Returns:
+        str: Строка с исправленным JSON.
+    """
+    
+    def fix_date(date_str: str) -> str:
+        """Исправляет дату в формате MM.DD.YYYY на формат YYYY-MM-DD."""
+        try:
+            # Определяем формат и преобразуем дату
+            if "." in date_str:
+                return datetime.strptime(date_str, "%m.%d.%Y").strftime("%Y-%m-%d")
+            else:
+                return date_str
+        except:
+            return None  # Возвращаем None, если формат некорректный
+        
+    valid_blood_classes = {"platelets", "blood", "plasma"}
+    valid_payment_types = {"free", "payed"}
+
+
+    data = json.loads(input_json)
+
+    fixed_data = []
+    for record in data:
+        blood_class = record["blood_class"]
+        if blood_class not in valid_blood_classes:
+            record["blood_class"] = "blood"
+        
+        payment_type = record["payment_type"]
+        if payment_type not in valid_payment_types:
+            record["payment_type"] = "free"
+        
+        donate_at = fix_date(record["donate_at"])
+        if donate_at is None:
+            continue  # Удаляем запись, если дата некорректна
+        record["donate_at"] = donate_at
+        
+        fixed_data.append(record)
+
+    return json.dumps(fixed_data, ensure_ascii=False)
 
 @fastapi_app.get("/")
 def main():
@@ -124,11 +171,11 @@ def upload(file: UploadFile):
         corrected_img = rotate_image(img, orientation)
         corrected_img.save(save_path)
 
-    if not classifier.predict(obtaining_embedding(save_path))[0]:
-        raise HTTPException(
-            status_code=400,
-            detail="Incorrect file type. The service only works with certificate of form 405",
-        )
+    #if not classifier.predict(obtaining_embedding(save_path))[0]:
+    #    raise HTTPException(
+    #        status_code=400,
+    #        detail="Incorrect file type. The service only works with certificate of form 405",
+    #    )
     task = process_file.delay(save_path)
     return {"task_id": task.id}
 
@@ -156,7 +203,9 @@ def process_file(file_path: str):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        return df.to_json(orient="records", force_ascii=False)
+        json_ = df.to_json(orient="records", force_ascii=False)
+        json_ = clean_json(json_)
+        return json_
 
     except Exception as exc:
         raise exc
