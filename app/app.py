@@ -189,7 +189,7 @@ def get_result(task_id: str):
         return {"status": task.state}
 
 
-@celery_app.task(name="process_file")
+@celery_app.task(name="process_file", time_limit=120, soft_time_limit=110)
 def process_file(file_path: str):
     try:
         image = DocumentFile.from_images(file_path)
